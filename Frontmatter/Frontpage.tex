@@ -1,0 +1,46 @@
+\title{\thesistitle} 
+\author{\thesisauthora} 
+\date{\thedate} 
+\begin{titlepage}
+
+\newgeometry{left=3cm,right=3cm,top=50mm,bottom=0pt}
+% \pagecolor{frontbackcolor}
+% \color{\frontpagetextcolour}
+
+{ % Thesis title (to change see Setup/Settings.tex) 
+
+\begin{tabular}{p{\linewidth}}
+\Huge  \TitleFont{\thesistitle} \bigskip   \\ 
+\huge  \TitleFont{\thesissubtitle} \bigskip \\
+\centering \LARGE \titlefont{\documenttype} \\
+\centering \thedate \\
+\end{tabular}
+}
+
+
+\large
+\namesigdate{\thesisauthora~-~\studentnumbera}
+\namesigdate{\thesisauthorb~-~\studentnumberb}
+
+\vspace{20mm}
+
+\begin{table}[h!]
+\caption*{\textbf{Work distribution:}}
+\centering
+\begin{tabular}{llll}
+\toprule
+Subassignment                       & Exercises     & Text responsible  & Code responsible  \\ \hline
+1. Equation solving                 & All           & Johan             & Johan             \\
+2. Virtual work priciple           & All           & Markus            & Markus            \\
+3. NAME OF ASSIGNMENT 3        & All           & Markus            & Markus            \\
+4. NAME OF ASSIGNMENT 4            & All           & Johan             & Johan             \\ \hline \hline
+Star exercises                      &               &                   &                   \\ \hline
+*STAR EX 1                       & All           & Markus            & Markus            \\
+*STAR EX 2                       & All           & Markus            & Markus            \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+\end{titlepage}

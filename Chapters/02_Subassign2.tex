@@ -1,0 +1,102 @@
+\setlength{\abovedisplayskip}{5pt}
+\setlength{\belowdisplayskip}{5pt}
+\chapter{Exercise 2 - Virtual Work Principle (VWP)}
+\setlength{\columnsep}{0.5cm}
+\begin{multicols}{2}
+\paragraph{2.1} The slab undergoes pure shear derformation. Thus, the only non-zero components of the usual small strain tensor, 
+\begin{equation}
+    \epsilon_{ij}=\frac{1}{2}(u_{j,i}+u_{i,j}),
+\end{equation}
+is $\epsilon_{12}=\epsilon_{21}=\frac{1}{2}u_{1,2}$ (where $u_1=u_1(x)$), with all other $\epsilon_{ij}=0$. Note that $u_{2,1}=0$, as there is no displacement variation in the $x_1$-direction. The usual constitutive equations gives the corresponding non-zero stresses: $\sigma_{12}=\sigma_{21}=2G(x_2)\epsilon_{12}$, where all other $\sigma_{ij}=0$ and $G(x_2)=\frac{E(x_2)}{2[1+\nu(x_2)]}$. Hence, the strain and stress vectors for the $x_1x_2$-plane can be written as
+\begin{align}
+    \{\epsilon\} &= \{ 0,\, 0,\,  u_{1,2} \}^T \\
+    \{\sigma\}   &= \{ 0,\, 0,\, \frac{E(x_2)}{2[1+\nu(x_2)]}u_{1,2} \}^T
+\end{align}
+\squeezeup
+\squeezeup
+\paragraph{2.2} Inserting the above relations in $U=\frac{1}{2}\sigma_{ij}\epsilon_{ij}$ readily determines the strain energy density, $U$,
+\begin{equation}
+    \nonumber
+    U=\frac{1}{2}2\sigma_{12}\epsilon_{12} = 2G(x_2)\epsilon_{12}^2 = \frac{1}{2}G(x_2)u_{1,2}^2
+\end{equation}
+\squeezeup
+\squeezeup
+\paragraph{2.3} Neglecting surface tractions (friction) and body forces reduces the virtual work principle (VWP) to 
+\begin{equation}
+    \int_V \updelta \epsilon_{ij} \sigma_{ij} \dif V = 0.
+    \label{eq:reducedVWP}
+\end{equation}
+Inserting the previously determined strain and stress relations into \cref{eq:reducedVWP} allows the weak form of the equilibrium equation to be rewritten on the desired bi-linear form:
+\begin{equation}
+    \nonumber
+    \int_V 2\updelta \epsilon_{12} \sigma_{12} \dif V = \int_V \updelta u_{1,2}G(x_2)u_{1,2} \dif V .
+\end{equation}
+Expanding the volume integral over a box shaped domain with width $w$, height $2H$ and depth $b$, respectively, in the $x_1$, $x_2$ and $x_3$-directions gives
+\begin{equation}
+\int_{0}^b\int_0^{2H}\int_0^w \updelta u_{1,2}G(x_2)u_{1,2} \dif x_1 \dif x_2 \dif x_3.
+\label{eq:ex2ExpandedVolint}
+\end{equation}
+Using that the deformations and material parameters are independent of the $x_1$ and $x_3$-directions reduces the VWP (\cref{eq:reducedVWP}) to one dimension (1D):
+\begin{equation}
+A\int_0^{2H} \updelta u_{1,2}G(x_2)u_{1,2} \dif x_2 = 0
+\label{eq:ex21DVWP}
+\end{equation}
+where $A=bw$ is the cross-sectional area of the box domain in the $x_1x_3$-plane.
+\squeezeup
+\squeezeup
+\paragraph{2.4} The discrete finite element equation is formulated by first introducing a discrete displacement field, with (element) nodal displacements given by $\{d\}$, and then using the interpolation relations for, respectively, the inter-element displacement, $u_1(x_2)=\{N\}^T\{d\}$, and shear strain, $2\epsilon_{12}=u_{1,2}=\{B\}^T\{d\}$. Inserting these relations in the 1D VWP (\cref{eq:ex21DVWP}) yields
+\begin{equation}
+ \sum_e A^e \int_0^{L_0^e} \{\updelta d\}^T\{B\} G(x_2) \{B\}^T\{d\} \dif x_2 = \{0\} 
+\nonumber
+\end{equation}
+where $L_0^e$ and $A^e$ is, respectively, the undeformed element length and area. The VWP must hold for all kinematically admissible displacements $\{\updelta d\}$, leaving the discrete finite element equation:
+\begin{equation}
+\sum_e  \underbrace{A^e\int_0^{L_0^e} \{B\} G(x_2) \{B\}^T \dif x_2}_{[k^e]} \{D\} = \{0\}  
+\nonumber
+\end{equation}
+where the element stiffness matrix, $[k^e]$, is identified. Hence, an approximation to the shear problem is obtained by introducing a (prescribed) displacement of $\Delta$ to the discretization's top and bottom node and solving the global system of equations $[K]\{D\}=\{0\}$. Note $[K]=\sum_e[k^e]$.
+\squeezeup
+\vspace{-2mm}
+\paragraph{2.5} \Cref{fig:1Delement} illustrates the developed 1D shear element and its corresponding shape functions, $N_1$ and $N_2$. Evaulating and inserting the strain-displacement matrix, $\{B\}=\frac{\partial}{\partial x_2}\{N_1, N_2\}^T$, into the element stiffness matrix (defined in the discrete finite element equation) results in 
+\begin{equation}
+    \nonumber
+    [k^e] = \frac{A^e}{(u_2-u_1)^2}
+    \begin{bmatrix}
+     1   & -1 \\
+    -1   &  1
+    \end{bmatrix}
+    \int_0^{L_0^e} G(x_2) \dif x_2
+\end{equation}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[ 
+roundnode/.style={circle}]
+\coordinate (a) at (0,0);
+\coordinate (b) at (0,1.5);
+\coordinate (an) at ($ (a) - (.5,0) $ );
+\coordinate (bn) at ($ (b) - (.5,0) $);
+\coordinate (ah) at ($ (a) - (1,0) $);
+\coordinate (bh) at ($ (b) - (1,0) $);
+\draw [line width=0.5mm] (a) -- (b);
+\fill[black!100!white] (a) circle (1mm);
+\fill[black!100!white] (b) circle (1mm);
+\draw [-{Latex[length=2mm]},blue] (a) -- ($ (a) + (0.8,0) $);
+\draw [-{Latex[length=2mm]},blue] (b) -- ($ (b) + (0.8,0) $);
+\draw ($ (a) + (1,0.2)$) node { $u_1$};
+\draw ($ (b) + (1,0.2)$) node { $u_2$};
+\draw (an) node {\footnotesize 1};
+\draw (bn) node {\footnotesize 2};
+\draw (an) circle (2mm);
+\draw (bn) circle (2mm);
+\draw [|<->|,black] (ah) -- node[anchor=east] {$L$} (bh);
+\draw ($ (an) - (3,-.1) $) node {$N_1=\dfrac{u_2-x_2}{u_2-u_1}$};
+\draw ($ (bn) - (3, .1) $) node {$N_2=\dfrac{u_1-x_2}{u_1-u_2}$};
+\end{tikzpicture}
+\caption{2-node (linear) 1D shear element.}
+\label{fig:1Delement}
+\end{figure}
+
+
+\end{multicols}
+\clearpage

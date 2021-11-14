@@ -1,0 +1,1187 @@
+
+
+\chapter{Source code: Exercise 1 - Linear truss analysis}
+\vspace{2mm}
+\begin{lstlisting}[language=Matlab, caption = FE implementation for Linear truss analysis, label=lst:CodeLinear]
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                        Basis truss program                              %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%function fea()
+
+close all
+clc
+
+%--- Input file ----------------------------------------------------------%
+
+assign1
+
+neqn = size(X,1)*size(X,2);         % Number of equations
+ne = size(IX,1);                    % Number of elements
+disp(['Number of DOF ' sprintf('%d',neqn) ...
+    ' Number of elements ' sprintf('%d',ne)]);
+
+%--- Initialize arrays ---------------------------------------------------%
+Kmatr=sparse(neqn,neqn);                % Stiffness matrix
+P=zeros(neqn,1);                        % Force vector
+D=zeros(neqn,1);                        % Displacement vector
+R=zeros(neqn,1);                        % Residual vector
+strain=zeros(ne,1);                     % Element strain vector
+stress=zeros(ne,1);                     % Element stress vector
+Rint=zeros(neqn,1);                       % Internal reaction force vector
+
+%--- Calculate displacements ---------------------------------------------%
+[P]=buildload(X,IX,ne,P,loads,mprop);       % Build global load vector
+
+[Kmatr]=buildstiff(X,IX,ne,mprop,Kmatr);    % Build global stiffness matrix
+
+[Kmatr,P]=enforce(Kmatr,P,bound);           % Enforce boundary conditions
+
+D=Kmatr\P;                                   % Solve system of equations
+
+[strain,stress]=recover(mprop,X,IX,D,ne,strain,stress); % Calculate element 
+                                                        % stress and strain
+Rint=reaction(X,IX,ne,mprop,Rint,strain);                % Internal reaction
+                                                        % forces
+R=Rint-P;                                                % Reaction forces        
+
+
+% 4. Compute reaction forces and compare with analytical
+% Reaction forces at A, node 18, x-direction
+node=18; ldof=1; % ldof=1 is x-direction, ldof=2 is y-direction
+gind=node*2-2+ldof;
+RAx=R(gind) ;
+% Reaction forces at D, node 19, y-direction
+node=18; ldof=2; % ldof=1 is x-direction, ldof=2 is y-direction
+gind=node*2-2+ldof;
+RAy=R(gind) ;
+
+% Reaction forces at D, node 19, x-direction
+node=19; ldof=1; % ldof=1 is x-direction, ldof=2 is y-direction
+gind=node*2-2+ldof;
+RDx=R(gind) ;
+% Reaction forces at D, node 19, y-direction
+node=19; ldof=2; % ldof=1 is x-direction, ldof=2 is y-direction
+gind=node*2-2+ldof;
+RDy=R(gind) ;
+
+display(RAx)
+display(RAy)
+display(RDx)
+display(RDy)
+
+% 5. Compute bar forces and stresses
+% In element connecting E and F, Element number 3
+e=3;
+Sigma3=stress(e);
+N3=Sigma3*A ;
+% In element connecting A and B, Element number 17
+e=17 ;
+Sigma17=stress(e);
+N17=Sigma17*A ;
+
+display(Sigma3)
+display(N3)
+
+display(Sigma17)
+display(N17)
+
+
+% Displacements in G, node 9
+% x
+node=9; ldof=1; % ldof=1 is x-direction, ldof=2 is y-direction
+gind=node*2-2+ldof;
+dGx=D(gind);
+% y
+node=9; ldof=2; % ldof=1 is x-direction, ldof=2 is y-direction
+gind=node*2-2+ldof;
+dGy=D(gind);
+
+display(dGx)
+display(dGy)
+
+                                                        
+%--- Plot results --------------------------------------------------------%                                                        
+PlotStructure(X,IX,ne,neqn,bound,loads,D,stress)        % Plot structure
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Build global load vector %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [P]=buildload(X,IX,ne,P,loads,mprop);
+
+
+
+for i=1:size(loads,1)
+    
+    node=loads(i,1);
+    ldof=loads(i,2);
+    
+    gind=node*2-2+ldof;
+    
+   
+    P(gind,1)=loads(i,3);
+    
+    
+    %display('ERROR in fea/buildload: build load vector')
+end
+%pause
+
+return
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Build global stiffness matrix %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [K]=buildstiff(X,IX,ne,mprop,K);
+% This subroutine builds the global stiffness matrix from
+% the local element stiffness matrices
+
+for e=1:ne
+    Ae=mprop(IX(e,3),2);
+    E=mprop(IX(e,3),1);
+    dx=X(IX(e,2),1)-X(IX(e,1),1);
+    dy=X(IX(e,2),2)-X(IX(e,1),2);
+    L0e=sqrt(dx^2+dy^2);
+    B0=1/L0e^2*[-dx; -dy; dx; dy];
+    
+    ke=Ae*E*L0e*B0*B0';
+    
+    edof=[IX(e,1)*2-1,IX(e,1)*2,IX(e,2)*2-1, IX(e,2)*2]';
+    
+    K(edof,edof)=ke+K(edof,edof);
+
+end
+%pause
+return
+end
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Enforce boundary conditions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [K,P]=enforce(K,P,bound);
+
+% This subroutine enforces the support boundary conditions
+
+for i=1:size(bound,1)
+    node=bound(i,1);
+    ldof=bound(i,2);
+    displ=bound(i,3);
+    
+    gind=node*2-2+ldof;
+
+    P=P-K(:,gind)*displ; 
+end
+
+for i=1:size(bound,1)
+    node=bound(i,1);
+    ldof=bound(i,2);
+    displ=bound(i,3);
+    
+    gind=node*2-2+ldof;
+    
+    K(gind,:)=zeros(1,size(K,1));
+    K(:,gind)=zeros(size(K,1),1);
+    K(gind,gind)=1;
+    
+    if abs(displ)>0
+        P(gind)=displ; 
+    else 
+        P(gind)=0 ;
+    end
+     
+end
+
+return
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Calculate element strain and stress %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [strain,stress]=recover(mprop,X,IX,D,ne,strain,stress);
+
+% This subroutine recovers the element stress, element strain, 
+% and nodal reaction forces
+        
+for e=1:ne
+    E=mprop(IX(e,end),1);
+    dx=X(IX(e,2),1)-X(IX(e,1),1);
+    dy=X(IX(e,2),2)-X(IX(e,1),2);
+    L0e=sqrt(dx^2+dy^2);
+    B0=1/L0e^2*[-dx; -dy; dx; dy];
+    
+    edof=[IX(e,1)*2-1,IX(e,1)*2,IX(e,2)*2-1, IX(e,2)*2]';
+    
+    d=D(edof);
+    
+    strain(e,1)=B0'*d;
+    stress=strain*E;
+end
+%pause
+
+return
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Reaction forces %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                                                        
+                                                        
+function [Rint]=reaction(X,IX,ne,mprop,Rint,strain)                                                        
+                                                        
+for e=1:ne
+ Ae=mprop(IX(e,3),2);
+    E=mprop(IX(e,3),1);
+    dx=X(IX(e,2),1)-X(IX(e,1),1);
+    dy=X(IX(e,2),2)-X(IX(e,1),2);
+    L0e=sqrt(dx^2+dy^2);
+    B0=1/L0e^2*[-dx; -dy; dx; dy];
+    
+    edof=[IX(e,1)*2-1,IX(e,1)*2,IX(e,2)*2-1, IX(e,2)*2]';
+        
+    Ne=Ae*E*strain(e) ;
+    Rint(edof)=Rint(edof) + B0*Ne*L0e;
+    
+end
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Plot structure %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function PlotStructure(X,IX,ne,neqn,bound,loads,D,stress)
+
+% This subroutine plots the undeformed and deformed structure
+
+h1=0;h2=0;
+% Plotting Un-Deformed and Deformed Structure
+clf
+hold on
+box on
+for e = 1:ne
+    xx = X(IX(e,1:2),1);
+    yy = X(IX(e,1:2),2);
+    h1=plot(xx,yy,'k:','LineWidth',1.);
+    edof = [2*IX(e,1)-1 2*IX(e,1) 2*IX(e,2)-1 2*IX(e,2)];
+    xx = xx + D(edof(1:2:4));
+    yy = yy + D(edof(2:2:4));
+    
+        
+    
+    sTol=max(stress)*1e-5;
+    
+    if abs(stress(e,1))<=sTol
+        lcol="g";
+    elseif stress(e,1)>0
+        lcol="b";
+    elseif stress(e,1)<0
+        lcol="r";
+    end
+    h2=plot(xx,yy,lcol,'LineWidth',3.5);
+    
+end
+plotsupports
+plotloads
+
+%hg=plot(0,0,'g');
+%hb=plot(0,0,'b');
+%hr=plot(0,0,'r');
+hk=plot(0,0,'k','LineWidth',3.5);
+
+%legend([h1 hg hb hr],{'Undeformed state',...
+%                'Deformed state (Non-loaded)'}
+%                'Deformed state (Tension)',...
+%                'Deformed state (Compressed)'},'location','northeast')
+set(gca,'fontsize',20)
+% title('Deformation of truss structure')
+xlabel('x [m]')
+ylabel('y [m]')
+legend([h1 hk],{'Undeformed state',...
+                'Deformed state'})
+axis equal;
+hold off
+
+
+return
+end
+
+\end{lstlisting}
+
+\chapter{Source code: Exercise 2 - Material non-linearity}
+\vspace{2mm}
+\begin{lstlisting}[language=Matlab, caption = FE implementation for material non-linearity, label=lst:CodeMNA]
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                  Basis truss program - Nonlinear materials              %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%--- Input file ----------------------------------------------------------%
+function [D, P, R] = feaMNA(inputFile, algType)
+
+run(inputFile);                     % Load inputfile
+
+neqn = size(X,1)*size(X,2);         % Number of equations
+ne = size(IX,1);                    % Number of elements
+disp(['Number of DOF ' sprintf('%d',neqn) ...
+    ' Number of elements ' sprintf('%d',ne)]);
+
+%--- Initialize arrays ---------------------------------------------------%
+Ktmatr=sparse(neqn,neqn);               % Stiffness matrix
+K0=sparse(neqn,neqn);                   % Zero stiffness matrix
+P=zeros(neqn,nincr+1);                  % Force vector
+D=zeros(neqn,nincr+1);                  % Displacement vector
+dD=zeros(neqn,1);                       % Displacement increment vector
+R=zeros(neqn,nincr+1);                  % Residual vector
+R0=zeros(neqn,1);                       % Zero residual vector
+dPmR=zeros(neqn,1);                     % delta P minus R vector
+strain=zeros(ne,nincr+1);               % Element strain vector
+strain0=zeros(ne,1);                    % Zero vector for strains
+stress=zeros(ne,nincr+1);               % Element stress vector
+stress0=zeros(ne,1);                    % Zero vector for stresses
+lam=zeros(ne,1);                        % Lambda vector
+
+Rint_i = zeros(neqn,1);                 % Internal forces for equi. iters
+strain_i = zeros(ne,1);                 % Strain for equi. iterations
+stress_i = zeros(ne,1);                 % Stresses for equi. iterations
+D_i = zeros(neqn,imax);                 % Disp. for equi. iterations
+
+factCount = 0;
+%--- Calculate displacements using method specified by algType -----------%
+
+% Build (constant) global load-increment vector
+loads(:,3) = loads(:,3)/nincr;
+[dP]=buildload(X,IX,ne,P(:,1),loads,mprop);
+
+% Loop through load increments
+for n=2:(nincr+1)
+    disp(['Load increment no. ' sprintf('%d',n-1)])
+    
+    % Increment load vector
+    P(:,n) = P(:,n-1) + dP;                 
+    
+    % Pure Euler method
+    if strcmp(algType,'PureEuler')
+        % Build global tangent stiffness matrix
+        [Ktmatr]=buildstiff(X,IX,ne,mprop,K0,strain(:,n-1));
+        % Enforce boundary conditions on both K and dP
+        [Ktmatr, dP]=enforce(Ktmatr,dP,bound);
+        % Compute displacement increments (solve equilibrium equations)
+        factCount = factCount + 1;
+        dD(:,1) = Ktmatr\dP;                    
+        D(:,n) = D(:,n-1) + dD;                 % Update displacements
+        % Calculate element stress and strain
+        [strain(:,n),stress(:,n)]=recover(mprop,X,IX,D(:,n),...
+                                          ne,strain0,stress0);
+        % Calculate internal forces
+        Rint = InternalForces(X,IX,ne,mprop,R0,strain(:,n));
+        % Enforce BC's on internal forces
+        [~,Rint] = enforce(Ktmatr,Rint,bound);  
+        R(:,n) = Rint - P(:,n);                 % Compute residuals
+        
+    % Corrected Euler method
+    elseif strcmp(algType,'CorEuler')
+         % Build global tangent stiffness matrix
+        [Ktmatr]=buildstiff(X,IX,ne,mprop,K0,strain(:,n-1)); 
+        [Ktmatr, dPmR]=enforce(Ktmatr,dP-R(:,n-1),bound);   % Enforce BC's
+        dD = Ktmatr\(dPmR);
+        D(:,n) = D(:,n-1) + dD;
+        % Calculate element stress and strain
+        [strain(:,n),stress(:,n)]=recover(mprop,X,IX,D(:,n),...
+                                          ne,strain0,stress0);              
+        % Calculate internal forces
+        Rint = InternalForces(X,IX,ne,mprop,R0,strain(:,n));
+        % Enforce BC's on internal forces
+        [~,Rint] = enforce(Ktmatr,Rint,bound);  
+        R(:,n) = Rint - P(:,n);                 % Compute residuals
+        
+    % Newton-Rhapson (NR) methods
+    elseif strcmp(algType,'NR') || strcmp(algType,'NRMod')
+        
+        D(:,n) = D(:,n-1);          % Set displacements
+        D_i = D(:,n);               % Set displacement for equi. iter.
+      
+        if strcmp(algType,'NRMod')
+            % Build global tangent stiffness matrix
+            [Ktmatr]=buildstiff(X,IX,ne,mprop,K0,strain_i);
+            % Enforce boundary conditions on K
+            [Ktmatr, ~]=enforce(Ktmatr,R,bound);
+            % LU-factorize tanget stiffness matrix
+            factCount = factCount + 1;
+            [LM,UM] = lu(Ktmatr);      
+        end 
+            
+        % Perform equilibrium iterations
+        for i=1:imax
+            disp(['Equilibrium iteration no. ' sprintf('%d',i)])
+            % Calculate element stress and strain
+            [strain_i,stress_i]=recover(mprop,X,IX,D_i,...
+                                              ne,strain0,stress0);              
+            % Calculate internal forces
+            Rint_i = InternalForces(X,IX,ne,mprop,R0,strain_i);
+            R_i = Rint_i - P(:,n);               % Compute residuals
+            % Enforce boundary conditions on residuals
+            [~, R_i]=enforce(K0,R_i,bound);   
+            
+            % Stop equilibirum iterations if it satisfies error tolerance
+            if ( norm(R_i,2) <= epsStop*Pfinal )
+                break
+            end
+            
+            % Factorize stiffness matrix in case of classic NR-method
+            if strcmp(algType,'NR')
+                % Build global tangent stiffness matrix
+                [Ktmatr]=buildstiff(X,IX,ne,mprop,K0,strain_i);
+                % Enforce boundary conditions on both K and R
+                [Ktmatr, ~]=enforce(Ktmatr,R0,bound);   
+                % LU-factorize tanget stiffness matrix
+                factCount = factCount + 1;
+                [LM,UM] = lu(Ktmatr);       
+            end
+            
+            dD_i = -( UM \ ( LM\R_i ) );     % Solve FE equations
+            D_i = D_i + dD_i;                % Update displacements        
+        end
+        % Update solution (for load increment) 
+        D(:,n) = D_i;                       % Store displacements
+        stress(:,n) = stress_i;             % Store stresses
+    else
+        error(join(['Algorithm type: "algType" does not match any of the',...
+              'implemented methods. Please select from the following',...
+              ' list: PureEuler, CorEuler, NR, NRMod']))
+    end
+     
+end
+
+%--- Plot results --------------------------------------------------------%
+% Plot structure
+PlotStructure(X,IX,ne,neqn,bound,loads,D(:,end),stress(:,end)) 
+
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Build global load vector %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [P]=buildload(X,IX,ne,P,loads,mprop);
+
+for i=1:size(loads,1)
+    ind = loads(i,1)*2 + 1*(loads(i,2) - 2);
+    P(ind) = loads(i,3);
+end
+
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Build global stiffness matrix %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [K]=buildstiff(X,IX,ne,mprop,K,strain);
+% This subroutine builds the global stiffness matrix from
+% the local element stiffness matrices
+    
+% Build local stiffness matrices
+for e=1:ne
+    % Material properties
+    nprop = IX(e, 3);                       % Material property no.
+    c1 = mprop(nprop,3);
+    c2 = mprop(nprop,4);
+    c3 = mprop(nprop,5);
+    c4 = mprop(nprop,6);
+    lam = 1 + c4*strain(e);                 % Compute lambda parameter
+        % Compute tangent stiffness modulus
+    Ete = c4*( c1*(1+2*lam^(-3)) + 3*c2*lam^(-4) +...
+            3*c3*(-1 + lam^2 - 2*lam^(-3) + 2*lam^(-4)) );
+    Ae = mprop(nprop, 2);                   % Cross section area
+    % Distances (delta x, delta y)
+    dx = X(IX(e,2),1) - X(IX(e,1),1);
+    dy = X(IX(e,2),2) - X(IX(e,1),2);                 
+    L0e = sqrt(dx^2+dy^2);                  % Initial element length
+    B0 = 1/L0e^2*[-dx;-dy;dx;dy];           % Strain-displacement vector
+    ke = Ae*Ete*L0e*(B0*B0');               % Local stiffness matrix
+    edof = [2*IX(e,1)-1 2*IX(e,1) 2*IX(e,2)-1 2*IX(e,2)];
+    K(edof,edof) = K(edof,edof) + ke;       % Map (local) k to (global) K
+end
+
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Enforce boundary conditions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [K,P]=enforce(K,P,bound);
+% This subroutine enforces the support boundary conditions
+
+% Move non-zero displacements to the RHS (load vector)
+neqn = size(K,1);                               % No. of equations
+for i=1:size(bound,1)
+    ind = bound(i,1)*2 + 1*(bound(i,2) - 2);    % Row (and column) index
+    P(ind) = 0;                                 % Set load to zero
+    if bound(i,3) ~= 0
+        P = P - K(:,ind)*bound(i,3);
+    end
+end
+% Insert 1's and 0's in stiffness matrix in accordance with BC's
+for i=1:size(bound,1)
+    ind = bound(i,1)*2 + 1*(bound(i,2) - 2);    % Row (and column) index
+    P(ind) = 0;                                 % Set load to zero
+    K(ind,:) = zeros(neqn,1);                   % Replace row with zeros
+    K(:,ind) = zeros(1,neqn);                   % Replace column with zeros
+    K(ind,ind) = 1;                             % Insert one in diagonal
+    
+    % Set load vector equal to prescribed non-zero displacements
+    if bound(i,3) ~= 0
+        P(ind) = bound(i,3);
+    end
+end
+% -------------- ALTERNATIVELY: Apply the penalty method ------------------
+% alpha = max(diag(K))*10^8;                    % Fixed penalty number
+% for i=1:size(bound,1)
+%     ind = bound(i,1)*2 + 1*(bound(i,2) - 2);  % Row (and column) index
+%     K(ind,ind) = K(ind,ind) + alpha;          % Add penalty no. to diag(K)
+%    
+%     % If non-zero disp., add penalty no. times prescribed disp. to rhs
+%     if bound(i,3) ~= 0  
+%         P(ind) = P(ind) + alpha*bound(i,3);     
+%     end
+% end
+% -------------------------------------------------------------------------
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Calculate element strain and stress %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [strain,stress]=recover(mprop,X,IX,D,ne,strain,stress);
+% This subroutine recovers the element stress, element strain, 
+% and nodal reaction forces      
+
+for e=1:ne
+    % Material properties
+    nprop = IX(e, 3);                      % Material property no.
+    c1 = mprop(nprop,3);
+    c2 = mprop(nprop,4);
+    c3 = mprop(nprop,5);
+    c4 = mprop(nprop,6);
+    lam = 1 + c4*strain(e,1);              % Compute lambda parameter
+    % Compute tangent stiffness modulus
+    Ete = c4*( c1*(1+2*lam^(-3)) + 3*c2*lam^(-4) +...
+            3*c3*(-1 + lam^2 - 2*lam^(-3) + 2*lam^(-4)) );
+    % Distances (delta x, delta y)
+    dx = X(IX(e,2),1) - X(IX(e,1),1);
+    dy = X(IX(e,2),2) - X(IX(e,1),2);
+    L0e = sqrt(dx^2+dy^2);
+    B0 = 1/L0e^2*[-dx;-dy;dx;dy];           % Strain-displacement vector
+    edof = [2*IX(e,1)-1 2*IX(e,1) 2*IX(e,2)-1 2*IX(e,2)];
+    % Map global to local displacements
+    d = D(edof);
+    % Compute stresses and strains
+    strain(e,1) = B0'*d;
+    stress(e,1) = Ete*strain(e,1);
+end
+return
+
+function [Rint] = InternalForces(X,IX,ne,mprop,Rint,strain)
+% This subroutine calculates the internal forces using the
+% constitutive relation given by the Signorini material model
+
+for e=1:ne
+    % Material properties
+    nprop = IX(e, 3);                       % Material property no.
+    c1 = mprop(nprop,3);
+    c2 = mprop(nprop,4);
+    c3 = mprop(nprop,5);
+    c4 = mprop(nprop,6);
+    lam = 1 + c4*strain(e);                 % Compute lambda parameter
+    % Compute element stress
+    sige = c1*(lam-lam^(-2)) + c2*(1-lam^(-3))...
+          + c3*(1-3*lam+lam^3-2*lam^(-3)+3*lam^(-2)); 
+    Ae = mprop(nprop, 2);                   % Cross section area
+    % Distances (delta x, delta y)
+    dx = X(IX(e,2),1) - X(IX(e,1),1);
+    dy = X(IX(e,2),2) - X(IX(e,1),2);                 
+    L0e = sqrt(dx^2+dy^2);                  % Initial element length
+    B0 = 1/L0e^2*[-dx;-dy;dx;dy];           % Strain-displacement vector
+    % Compute internal forces
+    edof = [IX(e,1)*2-1,IX(e,1)*2,IX(e,2)*2-1,IX(e,2)*2];
+    Rint(edof) = Rint(edof) + B0*Ae*sige*L0e;
+end
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Plot structure %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function PlotStructure(X,IX,ne,neqn,bound,loads,D,stress)
+% This subroutine plots the undeformed and deformed structure
+
+h1=0;
+% Plotting Un-Deformed and Deformed Structure
+clf
+hold on
+box on
+for e = 1:ne
+    xx = X(IX(e,1:2),1);
+    yy = X(IX(e,1:2),2);
+    h1=plot(xx,yy,'k:','LineWidth',1.);
+    edof = [2*IX(e,1)-1 2*IX(e,1) 2*IX(e,2)-1 2*IX(e,2)];
+    xx = xx + D(edof(1:2:4));
+    yy = yy + D(edof(2:2:4));
+    
+    % Determine non-loaded, tension or compression elements
+    sTol = max(stress)*1e-5;     % Stress tolerance for non-loaded elements
+    if (abs(stress(e,1)) <= sTol)% First, check if non-loaded
+        lcol = "g";
+    elseif (stress(e,1) > 0)     % Tension (Blue)
+        lcol = "b";   
+    elseif (stress(e,1) < 0)     % Compression (Red)
+        lcol = "r"; 
+    end      
+    
+    plot(xx,yy,lcol,'LineWidth',3.5);    
+end
+plotsupports
+plotloads
+% Plot abitrary lines for correct legend indication
+hk = plot(0,0,'k','LineWidth',3.5);
+legend([h1 hk],{'Undeformed state',...
+                'Deformed state'});
+xlabel('x [m]')
+ylabel('y [m]')
+set(gca,'fontsize',16)
+axis equal;
+hold off
+return
+\end{lstlisting}
+
+\chapter{Source code: Exercise 3 - Geometrical non-linearity}
+\vspace{2mm}
+\begin{lstlisting}[language=Matlab, caption = FE implementation for geometrical non-linearity, label=lst:CodeGNA]
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                  Basis truss program - Geometric non-linear analysis    %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+function [D, P] = feaGNA(inputFile, algType)
+
+run(inputFile);
+
+%--- Input file ----------------------------------------------------------%
+
+neqn = size(X,1)*size(X,2);         % Number of equations
+ne = size(IX,1);                    % Number of elements
+disp(['Number of DOF ' sprintf('%d',neqn) ...
+    ' Number of elements ' sprintf('%d',ne)]);
+
+%--- Initialize arrays ---------------------------------------------------%
+Ktmatr=sparse(neqn,neqn);               % Stiffness matrix
+K0=sparse(neqn,neqn);                   % Zero stiffness matrix
+P=zeros(neqn,nincr+1);                  % Force vector
+D=zeros(neqn,nincr+1);                  % Displacement vector
+dD=zeros(neqn,1);                       % Displacement increment vector
+R=zeros(neqn,nincr+1);                  % Residual vector
+R0=zeros(neqn,1);                       % Zero residual vector
+dPmR=zeros(neqn,1);                     % delta P minus R vector
+strain=zeros(ne,nincr+1);               % Element strain vector
+strain0=zeros(ne,1);                    % Zero vector for strains
+stress=zeros(ne,nincr+1);               % Element stress vector
+stress0=zeros(ne,1);                    % Zero vector for stresses
+
+Rint_i = zeros(neqn,1);                 % Internal reaction for equi. iter.
+strain_i = zeros(ne,1);                 % Strain for equi. iterations
+stress_i = zeros(ne,1);                 % Stresses for equi. iterations
+D_i = zeros(neqn,1);                    % Disp. for equi. iterations
+
+%--- Calculate displacements using method specified by algType -----------%
+
+% Build (constant) global load-increment vector
+loads(:,3) = loads(:,3)/nincr;
+[dP]=buildload(X,IX,ne,P(:,1),loads,mprop);
+
+% Loop through load increments
+for n=2:(nincr+1)
+    disp(['Load increment no. ' sprintf('%d',n-1)])
+    
+    % Increment load vector
+    P(:,n) = P(:,n-1) + dP;                 
+    
+    % Newton-Rhapson (NR) methods
+    if strcmp(algType,'NR') || strcmp(algType,'NRMod')
+        
+        D(:,n) = D(:,n-1);          % Set displacements
+        D_i = D(:,n);               % Set displacement for equi. iter.
+      
+        if strcmp(algType,'NRMod')
+            % Build global tangent stiffness matrix
+            [Ktmatr]=buildstiff(X,IX,ne,mprop,K0,D_i,strain_i);
+            % Enforce boundary conditions on K
+            [Ktmatr, ~]=enforce(Ktmatr,R,bound);
+            % LU-factorize tangent stiffness matrix
+            [LM,UM] = lu(Ktmatr);      
+        end 
+            
+        % Perform equilibrium iterations
+        for i=1:imax
+            disp(['Equilibrium iteration no. ' sprintf('%d',i)])
+            % Calculate element stress and strain
+            [strain_i,stress_i]=recover(mprop,X,IX,D_i,...
+                                              ne,strain0,stress0);              
+            % Calculate internal forces
+            Rint_i = internalForces(X,IX,ne,mprop,R0,D_i,strain_i);
+            R_i = Rint_i - P(:,n);               % Compute residuals
+
+            % Enforce boundary conditions on both K and R
+            [~, R_i]=enforce(K0,R_i,bound);   
+
+            % Stop equilibirum iterations if it satisfies error tolerance
+            if ( norm(R_i,2) <= epsStop*abs(Pfinal) )
+                break
+            end
+            
+            if strcmp(algType,'NR')
+                % Build global tangent stiffness matrix
+                [Ktmatr]=buildstiff(X,IX,ne,mprop,K0,D_i,strain_i);
+                % Enforce boundary conditions on both K and R
+                [Ktmatr, ~]=enforce(Ktmatr,R0,bound);   
+                % LU-factorize tanget stiffness matrix
+                [LM,UM] = lu(Ktmatr);       
+            end
+            
+            dD_i = -( UM \ ( LM\R_i ) );        % Solve equilibrium equation
+            D_i = D_i + dD_i;                   % Update displacements        
+        end
+        % Update solution (load increment) displacement vector
+        D(:,n) = D_i;
+        stress(:,n) = stress_i;
+    else
+        error(join(['Algorithm type: "algType" does not match any of the',...
+              'implemented methods. Please select from the following',...
+              ' list: NR, NRMod']))
+    end
+     
+end
+
+
+%--- Plot results --------------------------------------------------------%
+% Plot structure
+PlotStructure(X,IX,ne,neqn,bound,loads,D(:,end),stress(:,end)) 
+
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Build global load vector %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [P]=buildload(X,IX,ne,P,loads,mprop);
+
+for i=1:size(loads,1)
+    ind = loads(i,1)*2 + 1*(loads(i,2) - 2);
+    P(ind) = loads(i,3);
+end
+
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Build global stiffness matrix %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [K]=buildstiff(X,IX,ne,mprop,K,D,strain);
+
+% This subroutine builds the global stiffness matrix from
+% the local element stiffness matrices
+
+for e=1:ne
+    edof = [2*IX(e,1)-1 2*IX(e,1) 2*IX(e,2)-1 2*IX(e,2)];
+    % Material properties
+    propno = IX(e, 3);                      % Material property no.
+    E = mprop(propno, 1);                   % Young's modulus
+    Ae = mprop(propno, 2);                  % Cross section area
+    % Distances (delta x, delta y)
+    dx = X(IX(e,2),1) - X(IX(e,1),1);
+    dy = X(IX(e,2),2) - X(IX(e,1),2);
+    % Displacements (delta u, delta v)
+    du = D(edof(3)) - D(edof(1));
+    dv = D(edof(4)) - D(edof(2));
+    L0e = sqrt(dx^2+dy^2);                  % Initial element length
+    B0 = 1/L0e^2*[-dx;-dy;dx;dy];           % Linear strain-displacement v.
+    Bd = 1/L0e^2*[-du;-dv;du;dv];           % Displacement dependent vector
+    % Derivative of displacement dependent vector wrt {d}
+    dBd_d = 1/L0e^2*[1  ,0  ,-1 ,0
+                     0  ,1  ,0  ,-1
+                     -1 ,0  ,1  ,0
+                     0  ,-1 ,0  ,1 ];
+    epsG = strain(e,1);                     % Element displacements
+    NGe = Ae*E*epsG;                        % Element force
+    ksige = dBd_d*NGe*L0e;                  % Stress stiffness matrix
+    k0e = Ae*E*L0e*(B0*B0');                % Linear stiffness matrix
+    kde =  Ae*E*L0e*(B0*Bd') +...           % Displacement stiffness matrix
+           Ae*E*L0e*(Bd*B0') +...
+           Ae*E*L0e*(Bd*Bd');
+    ke = ksige + k0e + kde;                 % Local stiffness matrix
+    K(edof,edof) = K(edof,edof) + ke;       % Map (local) k to (global) K
+end
+
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Enforce boundary conditions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [K,P]=enforce(K,P,bound);
+
+% This subroutine enforces the support boundary conditions
+
+% Move non-zero displacements to the RHS (load vector)
+neqn = size(K,1);                               % No. of equations
+for i=1:size(bound,1)
+    ind = bound(i,1)*2 + 1*(bound(i,2) - 2);    % Row (and column) index
+    P(ind) = 0;                                 % Set load to zero
+    if bound(i,3) ~= 0
+        P = P - K(:,ind)*bound(i,3);
+    end
+end
+
+% Insert 1's and 0's in stiffness matrix in accordance with BC's
+for i=1:size(bound,1)
+    ind = bound(i,1)*2 + 1*(bound(i,2) - 2);    % Row (and column) index
+    P(ind) = 0;                                 % Set load to zero
+    K(ind,:) = zeros(neqn,1);                   % Replace row with zeros
+    K(:,ind) = zeros(1,neqn);                   % Replace column with zeros
+    K(ind,ind) = 1;                             % Insert one in diagonal
+    
+    % Set load vector equal to prescribed non-zero displacements
+    if bound(i,3) ~= 0
+        P(ind) = bound(i,3);
+    end
+end
+
+% -------------- ALTERNATIVELY: Apply the penalty method ------------------
+% alpha = max(diag(K))*10^8;                    % Fixed penalty number
+% for i=1:size(bound,1)
+%     ind = bound(i,1)*2 + 1*(bound(i,2) - 2);  % Row (and column) index
+%     K(ind,ind) = K(ind,ind) + alpha;          % Add penalty no. to diag(K)
+%    
+%     % If non-zero disp., add penalty no. times prescribed disp. to rhs
+%     if bound(i,3) ~= 0  
+%         P(ind) = P(ind) + alpha*bound(i,3);     
+%     end
+% end
+% -------------------------------------------------------------------------
+
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Calculate element strain and stress %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [strain,stress]=recover(mprop,X,IX,D,ne,strain,stress);
+
+% This subroutine recovers the element stress, element strain, 
+% and nodal reaction forces
+   
+for e=1:ne
+    edof = [2*IX(e,1)-1 2*IX(e,1) 2*IX(e,2)-1 2*IX(e,2)];
+    % Material properties
+    propno = IX(e, 3);                      % Material property no.
+    E = mprop(propno, 1);                   % Young's modulus
+    % Distances (delta x, delta y)
+    dx = X(IX(e,2),1) - X(IX(e,1),1);
+    dy = X(IX(e,2),2) - X(IX(e,1),2);
+    % Displacements (delta u, delta v)
+    du = D(edof(3)) - D(edof(1));
+    dv = D(edof(4)) - D(edof(2));
+    L0e = sqrt(dx^2+dy^2);                  % Initial element length
+    B0 = 1/L0e^2*[-dx;-dy;dx;dy];           % Linear strain-displacement v.
+    Bd = 1/L0e^2*[-du;-dv;du;dv];           % Displacement dependent vector
+    d = D(edof);                            % Local displacements
+    % Compute stresses and strains
+    strain(e,1) = B0'*d + 0.5*Bd'*d;
+    stress(e,1) = E*strain(e,1);
+end
+
+return
+
+function [Rint] = internalForces(X,IX,ne,mprop,Rint,D,strain)
+
+% This function computes the internal forces of the system by mapping the 
+% local element forces to the global system
+
+for e=1:ne
+    edof = [2*IX(e,1)-1 2*IX(e,1) 2*IX(e,2)-1 2*IX(e,2)];
+    % Material properties
+    propno = IX(e, 3);                      % Material property no.
+    E = mprop(propno, 1);                   % Young's modulus
+    Ae = mprop(propno, 2);                  % Cross section area
+    % Distances (delta x, delta y)
+    dx = X(IX(e,2),1) - X(IX(e,1),1);
+    dy = X(IX(e,2),2) - X(IX(e,1),2);
+    % Displacements (delta u, delta v)
+    du = D(edof(3)) - D(edof(1));
+    dv = D(edof(4)) - D(edof(2));
+    L0e = sqrt(dx^2+dy^2);                  % Initial element length
+    B0 = 1/L0e^2*[-dx;-dy;dx;dy];           % Linear strain-displacement v.
+    Bd = 1/L0e^2*[-du;-dv;du;dv];           % Displacement dependent vector
+    Bbar = B0 + Bd;                         % Total strain-disp. vector
+    epsG = strain(e,1);                     % Element strain
+    NGe = Ae*E*epsG;                        % Element force
+    % Compute internal forces
+    Rint(edof) = Rint(edof) + Bbar*NGe*L0e; 
+end
+
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Plot structure %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function PlotStructure(X,IX,ne,neqn,bound,loads,D,stress)
+
+% This subroutine plots the undeformed and deformed structure
+
+h1=0;h2=0;
+% Plotting Un-Deformed and Deformed Structure
+clf
+hold on
+box on
+for e = 1:ne
+    xx = X(IX(e,1:2),1);
+    yy = X(IX(e,1:2),2);
+    h1=plot(xx,yy,'k:','LineWidth',1.);
+    edof = [2*IX(e,1)-1 2*IX(e,1) 2*IX(e,2)-1 2*IX(e,2)];
+    xx = xx + D(edof(1:2:4));
+    yy = yy + D(edof(2:2:4));
+    
+    % Determine non-loaded, tension or compression elements
+    sTol = max(stress)*1e-5;        % Stress tolerance for non-loaded elements
+    if (abs(stress(e,1)) <= sTol)    % First, check if non-loaded
+        lcol = "g";
+    elseif (stress(e,1) > 0)        % Tension (Blue)
+        lcol = "b";   
+    elseif (stress(e,1) < 0)        % Compression (Red)
+        lcol = "r"; 
+    end  
+    
+    h2=plot(xx,yy,lcol,'LineWidth',3.5);    
+end
+plotsupports
+plotloads
+% Plot abitrary lines for correct legend indication
+hk = plot(0,0,'k','linewidth',3.5);
+legend([h1 hk],{'Undeformed state',...
+                'Deformed state'});
+set(gca,'fontsize',14)
+axis equal;
+hold off
+
+return
+\end{lstlisting}
+
+\chapter{Source code: Exercise 4 - Topology optimization}
+\vspace{2mm}
+\begin{lstlisting}[language=Matlab, caption = FE implementation for topology optimization, label=lst:CodeTopo]
+% Exercise 4.1 
+% Implement the Optimality Criteria approach for topology optimization of
+% truss structures modelled by small displacement and strains.
+
+function [D, P, strain, stress, rho, v, Vstar, f] = fea_topo(inputFile,eta,p,Vstar,rhomin,eps,max_iopt)
+
+%--- Input file ----------------------------------------------------------%
+run(inputFile)
+
+neqn = size(X,1)*size(X,2);         % Number of equations
+ne = size(IX,1);                    % Number of elements
+disp(['Number of DOF ' sprintf('%d',neqn) ...
+      ' Number of elements ' sprintf('%d',ne)]);
+ 
+%--- Initialize arrays ---------------------------------------------------%
+Kmatr0=sparse(neqn,neqn);                % Stiffness matrix
+P=zeros(neqn,1);                        % Force vector
+D=zeros(neqn,1);                        % Displacement vector
+R=zeros(neqn,1);                        % Residual vector
+Rint=zeros(neqn,1);                     % Internal forces
+Rint0=zeros(neqn,1);                     % Internal forces
+strain=zeros(ne,1);                     % Element strain vector
+stress=zeros(ne,1);                     % Element stress vector
+strain0=zeros(ne,1);
+stress0=zeros(ne,1);                    
+Pfinal=zeros(neqn,1);
+R0=zeros(neqn,1);
+
+dfdrho=zeros(ne,1);
+dgdrho=zeros(ne,1);
+
+%% Initialize rho and Vstar (choose initial {rho} to satisfy g=0
+rho=zeros(ne,1);
+for e=1:ne
+    Ae=mprop(IX(e,3),2);
+    dx=X(IX(e,2),1)-X(IX(e,1),1);
+    dy=X(IX(e,2),2)-X(IX(e,1),2);
+    L0e=sqrt(dx^2+dy^2);
+    v(e,1)=L0e*Ae ;
+    rho(e,1)=Vstar/(v(e,1)*ne);
+end
+
+for iopt=1:max_iopt
+    rhoold=rho;
+    [P]=buildload(X,IX,ne,P,loads,mprop);                       % Build global load vector    
+    [Kmatr]=buildstiff(X,IX,ne,mprop,Kmatr0, D,rhoold,p);       % Build global stiffness matrix
+    [Kmatr,P]=enforce(Kmatr,P,bound);                           % Enforce boundary conditions
+    D=Kmatr\P;                                                  % Solve system of equations
+    [strain,stress,dfdrho,dgdrho]=recover(mprop,X,IX,D,ne,strain,stress,rhoold,v,Vstar,p); % Calculate element 
+    [rho]=bisect(rhoold,Vstar,dfdrho,dgdrho,v,rhomin,eta) ;
+    f(iopt,1)=D'*P;
+    if norm(rhoold-rho,2)<eps*norm(rho,2)
+        break
+    end
+end
+
+%--- Plot results --------------------------------------------------------%                                                        
+PlotStructure(X,IX,ne,neqn,bound,loads,D,stress,rho,rhomin)        % Plot structure
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Build global load vector %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [P]=buildload(X,IX,ne,P,loads,mprop);
+for i=1:size(loads,1)
+    node=loads(i,1);
+    ldof=loads(i,2);
+    gind=node*2-2+ldof;
+    P(gind,1)=loads(i,3);
+end
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Build global stiffness matrix %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [K]=buildstiff(X,IX,ne,mprop,K,D,rho,p);
+% This subroutine builds the global stiffness matrix from
+% the local element stiffness matrices
+
+for e=1:ne
+    Ae=mprop(IX(e,3),2);
+    E=mprop(IX(e,3),1);
+    dx=X(IX(e,2),1)-X(IX(e,1),1);
+    dy=X(IX(e,2),2)-X(IX(e,1),2);
+    L0e=sqrt(dx^2+dy^2);
+    B0=1/L0e^2*[-dx; -dy; dx; dy];
+    
+    edof=[IX(e,1)*2-1,IX(e,1)*2,IX(e,2)*2-1, IX(e,2)*2]';
+    
+    d=D(edof);
+
+    du=d(3,1)-d(1,1);
+    dv=d(4,1)-d(2,1);   
+    
+    ke0=Ae*E*L0e*B0*B0' ;
+    ke=rho(e,1)^p*ke0;
+
+    K(edof,edof)=ke+K(edof,edof);
+
+end
+%pause
+return
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Enforce boundary conditions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [K,P]=enforce(K,P,bound);
+
+% This subroutine enforces the support boundary conditions
+
+for i=1:size(bound,1)
+    node=bound(i,1);
+    ldof=bound(i,2);
+    displ=bound(i,3);
+    
+    gind=node*2-2+ldof;
+    
+    P(gind)=0 ;
+    K(gind,:)=zeros(1,size(K,1));
+    K(:,gind)=zeros(size(K,1),1);
+    K(gind,gind)=1;
+
+    %display('ERROR in fea/enforce: enforce boundary conditions')
+end
+
+return
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Calculate element strain and stress %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [strain,stress,dfdrho,dgdrho,f]=recover(mprop,X,IX,D,ne,strain,stress,rho,v,Vstar,p);
+
+% This subroutine recovers the element stress, element strain, 
+% and nodal reaction forces
+        
+for e=1:ne
+    Ae=mprop(IX(e,3),2);
+    E=mprop(IX(e,end),1);
+    dx=X(IX(e,2),1)-X(IX(e,1),1);
+    dy=X(IX(e,2),2)-X(IX(e,1),2);
+    L0e=sqrt(dx^2+dy^2);
+    B0=1/L0e^2*[-dx; -dy; dx; dy];
+    
+    edof=[IX(e,1)*2-1,IX(e,1)*2,IX(e,2)*2-1, IX(e,2)*2]';
+    
+    d=D(edof);
+    ke0=Ae*E*L0e*B0*B0' ;
+    
+    dgdrho(e,1)=v(e,1);
+    dfdrho(e,1)=-p*rho(e,1)^(p-1)*d'*ke0*d ;
+    
+    strain(e,1)=B0'*d;
+    stress=strain*E;
+end
+%pause
+
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Reaction forces %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                                                        
+                                                        
+function [Rint]=internalForces(X,IX,ne,mprop,D,Rint,strain)                                                        
+                                                        
+for e=1:ne
+ Ae=mprop(IX(e,3),2);
+    E=mprop(IX(e,3),1);
+    dx=X(IX(e,2),1)-X(IX(e,1),1);
+    dy=X(IX(e,2),2)-X(IX(e,1),2);
+    L0e=sqrt(dx^2+dy^2);
+    B0=1/L0e^2*[-dx; -dy; dx; dy];
+    
+    edof=[IX(e,1)*2-1,IX(e,1)*2,IX(e,2)*2-1, IX(e,2)*2]';    
+    d=D(edof);
+    du=d(3,1)-d(1,1);
+    dv=d(4,1)-d(2,1);
+    Bd=1/L0e^2*[-du;-dv;du;dv] ;
+
+    Bhat=B0+Bd ;
+            
+    Ne=Ae*E*strain(e) ;
+    Rint(edof)=Rint(edof) + Bhat*Ne*L0e;
+end
+return
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Plot structure %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function PlotStructure(X,IX,ne,neqn,bound,loads,D,stress,rho,rhomin)
+
+% This subroutine plots the undeformed and deformed structure
+
+h1=0;h2=0;
+% Plotting Un-Deformed and Deformed Structure
+clf
+hold on
+box on
+for e = 1:ne
+    xx = X(IX(e,1:2),1);
+    yy = X(IX(e,1:2),2);
+    % h1=plot(xx,yy,'k:','LineWidth',0.1);
+    edof = [2*IX(e,1)-1 2*IX(e,1) 2*IX(e,2)-1 2*IX(e,2)];
+    xx = xx + D(edof(1:2:4));
+    yy = yy + D(edof(2:2:4));
+    
+    sTol=max(stress)*1e-5;
+    
+    if abs(stress(e,1))<=sTol
+        lcol="g";
+    elseif stress(e,1)>0
+        lcol="b";
+    elseif stress(e,1)<0
+        lcol="r";
+    end
+    
+    if rho(e,1)>10*rhomin
+        h2=plot(xx,yy,lcol,'LineWidth',rho(e,1)*5);
+    end
+    
+end
+plotsupports
+plotloads
+
+%hg=plot(0,0,'g');
+hb=plot(0,0,'b');
+hr=plot(0,0,'r');
+
+legend([hb hr],{%'Undeformed state',...
+                %'Deformed state (Non-loaded)',...
+                'Tension',...
+                'Compression'},'location','southeast')
+
+axis equal;
+hold off
+
+return
+
+\end{lstlisting}

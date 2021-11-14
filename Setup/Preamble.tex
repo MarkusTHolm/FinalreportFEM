@@ -1,0 +1,75 @@
+\usepackage{microtype}      % better looking text
+% \usepackage[utf8]{inputenc}
+% \usepackage{fontspec}       % Package for custom fonts
+\usepackage[utf8]{inputenc}
+\usepackage[]{geometry}     % Package for changing page margins (before fancyhdr) 
+\usepackage{fancyhdr}       % Package to change header and footer
+\usepackage{parskip}        % Package to tweak paragraph skipping (instead of indents a small skip is added after every paragraph)
+\usepackage{titlesec}
+\usepackage{tikz}           % Package for drawing
+\usetikzlibrary{shapes.geometric, arrows}
+\usepackage{pgfplots}       % Package for creating graphs and charts
+\usepackage{pgfplotstable}  % Package for tables in pgfplots
+\usepackage{graphicx}       % Graphics
+\usepackage{xcolor}         % Package for defining DTU colours to be used
+\usepackage{amsmath}        % For aligning equations among other
+\usepackage{siunitx}        % SI units
+\sisetup{exponent-product = \cdot}      % Use cdot instead of times 
+\usepackage{listings}       % Package for inserting code, (before cleveref)
+\PassOptionsToPackage{hyphens}{url} % Ability to line break urls at hyphens
+\usepackage{hyperref}       % Package for cross referencing (also loads url package)
+\usepackage[capitalise]{cleveref}       % improved cross referencing
+\usepackage{textcomp}       % \textdegree = °C and other useful symbols
+\usepackage[english]{babel} % localisation 
+\usepackage{caption}        % better captions
+\usepackage[margin=10pt]{subcaption} % for subfigures
+\usepackage{csquotes}       % For biblatex with babel
+\usepackage[backend=biber,style=nature]{biblatex} % Package for bibliography (citing)
+\bibliography{bibliography}
+\usepackage{tabularx}       % for ability to adjust column spacing in tabular better
+\usepackage{booktabs}       % for better tables
+\usepackage{float}          % floating figures in correct places
+\usepackage{calc}           % Adds ability for latex to calculate (3pt+2pt) 
+\usepackage[printwatermark=false]{xwatermark} % Package for wartermark. Toggle printwatermark true or false to include or remove the watermark
+\usepackage{blindtext}
+
+% Additional packages:
+\usepackage{tcolorbox}          % Fancy textboxes
+\usepackage{verbatim}           % Write with a machine type font
+\usepackage{algorithm}          % Writing algorithms/pseoducode
+    \usepackage[noend]{algpseudocode} % No end:
+\usepackage{multicol}
+\usepackage{multirow}
+\usepackage{nomencl}            % For nomenclatures
+    \makenomenclature
+\usepackage[makeroom]{cancel}   % Cross out equations     
+\usepackage{commath}            % Proper typography of differential operators
+\usepackage{chemformula}        % Typesetting chemical formulas
+\usepackage{pdfpages}           % Inserting PDF's
+\usepackage{upgreek}            % Non-italices greek letters
+\usepackage{IEEEtrantools}      % Allign long equations
+\usepackage{hhline}             % Double horizontal line for tables
+\usepackage{rotating}           % Rotate tables and figures
+\usepackage{wrapfig}            % Wrap figures
+\usepackage{longtable}          % Make long tables
+\usepackage{bm}
+\usepackage{colortbl}
+
+
+
+
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\makeatletter
+% Moment equilibrium
+\newcommand*\curveplus{%
+  \mathbin{\rotatebox[origin=c]{90}{$\m@th\curvearrowleft$}}}
+% Force equilibirum horizontal
+\newcommand*\rightplus{%
+  \mathpalette\@rightplus\relax}
+\newcommand*\@rightplus[1]{%
+  \mathbin{\vcenter{\hbox{$\m@th\overset{#1+}{\to}$}}}}
+% Vertical force equilibrium
+\newcommand*\upplus{%
+  \mathbin{+\mathord\uparrow}}
+\makeatother

@@ -1,0 +1,36 @@
+\documentclass[a4paper,twoside,12pt]{report} %openright
+\input{Setup/Statics.tex}
+\input{Setup/Preamble.tex}
+\input{Setup/Settings.tex}
+
+\begin{document}
+
+\pagenumbering{roman}
+\input{Frontmatter/Frontpage.tex}
+\pagecolor{white}
+\newgeometry{top=3cm, bottom=3cm, outer=2cm, inner=2cm}
+% \pagestyle{empty}
+% \input{Frontmatter/Abstract.tex}
+\tableofcontents
+\clearpage
+
+% % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\pagenumbering{arabic}
+\clearpage
+\input{Chapters/01_Subassign1}
+\clearpage
+\input{Chapters/02_Subassign2}
+\clearpage
+% \input{Chapters/03_Subassign3}
+% \clearpage
+% \input{Chapters/04_Subassign4}
+% \clearpage
+\input{Chapters/05_StarExercises}
+
+
+% % % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \printbibliography[heading=bibintoc,title={References}]
+% \cleardoublepage 
+% \appendix
+% \input{Backmatter/Appendix}
+\end{document}

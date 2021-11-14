@@ -1,0 +1,180 @@
+\chapter{Exercise 3 - Geometrical non-linearity}
+
+\paragraph{3.1} The support column's effective bending stiffness, $EI$, is determined following the procedure described in the assignment. Simple beam theory gives the relation $v=\frac{PL^3}{3EI}$ \cite{Styrkebog} between transverse deflection, $v$, concentrated external force, $P$, beam length, $L$, and bending stiffness $EI$. Solving for the bending stiffness yields the expression $EI=\frac{PL^3}{3v}$, from which the effective stiffness can be computed by enforcing an arbitrary \textit{small} load (here choosing $P=\SI{0.1e-6}{N}$), and finding the deflection, $v$, from the FE solution. Note, using a small load  ensures a linear structural response, and the beam length is known to be $L=\SI{50}{m}$. This results in the effective bending stiffness $EI=\SI{0.031}{Nm^2}$.
+\setlength{\columnsep}{8pt}%
+\begin{wrapfigure}[12]{r}{0.4\textwidth}
+\flushright
+\begin{tikzpicture}
+\begin{axis}[
+	xmin = 0, xmax = 100,
+	ymin = 0, ymax = 3e-4,
+	grid = both,
+	xlabel = Horizontal tip displacement \si{[m]},
+	ylabel = External force: $2P$ \si{[N]} ,
+	minor tick num = 0,
+	major grid style = {lightgray},
+	minor grid style = {lightgray!25},
+	width = .95\linewidth,
+	height = .70\linewidth,
+	legend cell align = {left},
+	legend pos = south east,
+	scaled y ticks=base 10:3,
+    /pgf/number format/sci subscript,
+    cycle list name=BlackWhite,
+    % every x tick scale label/.style={
+    % at={(0.9,0)},yshift=-16pt,anchor=south west,inner sep=0pt}
+    % scaled ticks=false,
+    % ticklabel style={
+    % /pgf/number format/fixed,
+    % /pgf/number format/precision=5}
+]
+\addplot table {Figures/PlotData/Ex32LoadDisp.dat};
+\addplot [dashed] coordinates { (0, 0.0002519) (100, 0.0002519) };
+% \addplot table {Figures/PlotData/LinearNR.dat};
+\legend{
+	GNA, 
+	Analytical $P_{crit}$}
+\end{axis}
+\end{tikzpicture}
+\caption{}
+\label{fig:LoadDisp32}
+\end{wrapfigure}
+\squeezeup
+\squeezeup
+\paragraph{3.2} The support column's analytical buckling load is estimated from Euler's column case III \cite{Styrkebog}, expressing the critical load as $P_{crit} = \frac{20.2EI}{L^2}$. \Cref{fig:LoadDisp32} illustrates the load-displacement curve generated from the geometrically non-linear analysis (GNA) compared to the analytically determined critical load, $P_{crit}$. The results (\cref{fig:LoadDisp32}) shows good agreement between the analytical estimate and the numerical results, due to the column structure being long and slender  ($L/h=40$), thus, satisfying the assumptions from simple beam theory. Note, a rule-of-thumb length-to-height ratio for a long and slender beam is $L/h>20$. However, the FEA slightly underestimates the critical load as the load is placed off the beam axis.
+\squeezeup
+\paragraph{3.3+3.4} 
+\setlength{\columnsep}{10pt}%
+\begin{wrapfigure}[21]{r}{0.55\textwidth}
+ \flushright
+\begin{tikzpicture}
+\begin{axis}[
+	xmin = 0, xmax = 35,
+	ymin = 0, ymax = 1.65e-3,
+	grid = both,
+	xlabel = Absolute displacement of point A: $|D_A|$ \si{[m]},
+	ylabel = Re-scaled resulting force: $F/\text{SCALE}$ \si{[N]} ,
+	minor tick num = 0,
+	major grid style = {lightgray},
+	minor grid style = {lightgray!25},
+	width = 1\linewidth,
+	height = .97\linewidth,
+% 	transpose legend,
+    legend style={
+    cells={anchor=east},
+    % at={(1.0,1.35)
+    legend pos = south east,
+    legend columns=2},
+    cycle list name=BlackWhite,
+    every x tick scale label/.style={
+    at={(1,0)},xshift=1pt,anchor=south west,inner sep=0pt}
+    % scaled ticks=false,
+    % ticklabel style={
+    % /pgf/number format/fixed,
+    % /pgf/number format/precision=5}
+]
+\addplot [blue, mark=o, mark options={scale=.8}] table {Figures/PlotData/Ex33LoadDispHoz05.dat};
+\addplot [blue, mark =x, mark options={scale=1.2}] table {Figures/PlotData/Ex33LoadDispVer05.dat};
+\addplot [black, mark=o, mark options={scale=.8}] table {Figures/PlotData/Ex33LoadDispHoz1.dat};
+\addplot [black, mark =x, mark options={scale=1.2}] table {Figures/PlotData/Ex33LoadDispVer1.dat};
+\addplot [red, mark=o, mark options={scale=.8}] table {Figures/PlotData/Ex33LoadDispHoz2.dat};
+\addplot [red, mark =x, mark options={scale=1.2}] table {Figures/PlotData/Ex33LoadDispVer2.dat};
+
+\draw [-{Latex[length=2mm]}] (4,0.25e-3) -- (1.25349,0.000471);
+\draw [-{Latex[length=2mm]}] (4,0.25e-3) -- (6.63869,0.00048);
+\draw (4,0.2e-3) node {\footnotesize Jump};
+% \addplot table {Figures/PlotData/LinearNR.dat};
+\legend{
+	H $E_{C} = .05$, 
+	V $E_{C} = .05$,
+	H $E_{C} = 0.1$, 
+	V $E_{C} = 0.1$,
+    H $E_{C} = 0.2$, 
+	V $E_{C} = 0.2$}
+\end{axis}
+\end{tikzpicture}
+\caption{Load displacement curves in horizontal (H) and vertical (V) direction for different $E_{C}/E_{B}$ ratios.}
+\label{fig:LoadDisp33}
+\end{wrapfigure}
+ \Cref{fig:LoadDisp33} illustrates the computed load-displacement curve recorded at point A in both the horizontal and vertical direction for the three different ratios of Young's moduli between the column and the beam; $E_{C}/E_{B}$. Note, the resulting external force, $F$, is re-scaled by normalising with the scale factor, SCALE, for plotting reasons. The non-scaled curve ($E_{C}=0.1$, similar to \cref{fig:LoadDisp32}) becomes unstable when the load is approximately equal to $\SI{0.5e-3}{N}$, which is double the amount of the support column alone; primarily due to the beam constraining rotation of the column tip but also from the added stiffness following beam bending. Note, fully fixing the column tip (Euler case IV) doubles the analytical load capacity compared to that shown in \cref{fig:LoadDisp32} \cite{Styrkebog}. Lowering the column stiffness (to $E_C=0.05$) decreases the structural stiffness loss resulting from column buckling. Conversely, increasing the column stiffness (to $E_C=0.2$) increases the significance of column buckling to an extent where the full load-displacement curve is not captured by the present (force-controlled) implementation, which is observed as a \textit{jump} between the data points of the vertical displacement. This is because the structure attains an unstable equilibrium configuration during column buckling, where the beam is essentially pulled downwards by the column, resulting in negative stiffness.
+
+%%%%%%%%%% SIDE BY SIDE %%%%%%%%%%%%%%%%%%%%%%%
+
+% \begin{figure}[htb]
+% \begin{subfigure}[t]{.48\textwidth}
+% \centering
+% \begin{tikzpicture}
+% \begin{axis}[
+% 	xmin = 0, xmax = 1.2e-3,
+% 	ymin = 0, ymax = 3.5e-3,
+% 	grid = both,
+% 	xlabel = Horizontal displacement at load: \si{[m]},
+% 	ylabel = External force: $P$ \si{[N]} ,
+% 	minor tick num = 0,
+% 	major grid style = {lightgray},
+% 	minor grid style = {lightgray!25},
+% 	width = .95\linewidth,
+% 	height = .75\linewidth,
+% 	legend cell align = {left},
+% 	legend pos = south east,
+%     cycle list name=BlackWhite,
+%     every x tick scale label/.style={
+%     at={(1,0)},xshift=1pt,anchor=south west,inner sep=0pt}
+%     % scaled ticks=false,
+%     % ticklabel style={
+%     % /pgf/number format/fixed,
+%     % /pgf/number format/precision=5}
+% ]
+% \addplot table {Figures/PlotData/Ex32LoadDisp.dat};
+% \addplot [dashed] coordinates { (0,3.069e-3) (1.2e-3,3.069e-3) };
+% % \addplot table {Figures/PlotData/LinearNR.dat};
+% \legend{
+% 	GNA, 
+% 	Analytical $P_{crit}$}
+% \end{axis}
+% \end{tikzpicture}
+% \caption{}
+% \label{fig:LoadDisp32}
+% \end{subfigure}%
+% \begin{subfigure}[t]{.48\textwidth}
+% \centering
+% \begin{tikzpicture}
+% \begin{axis}[
+% 	xmin = 0, xmax = 30,
+% 	ymin = 0, ymax = 1.6e-3,
+% 	grid = both,
+% 	xlabel = Horizontal displacement at load: \si{[m]},
+% 	ylabel = External force: $P$ \si{[N]} ,
+% 	minor tick num = 0,
+% 	major grid style = {lightgray},
+% 	minor grid style = {lightgray!25},
+% 	width = .95\linewidth,
+% 	height = .75\linewidth,
+% 	legend cell align = {left},
+% 	legend pos = south east,
+%     cycle list name=BlackWhite,
+%     every x tick scale label/.style={
+%     at={(1,0)},xshift=1pt,anchor=south west,inner sep=0pt}
+%     % scaled ticks=false,
+%     % ticklabel style={
+%     % /pgf/number format/fixed,
+%     % /pgf/number format/precision=5}
+% ]
+% \addplot [black, mark=o, mark options={scale=.4}] table {Figures/PlotData/Ex33LoadDispHoz.dat};
+% \addplot [black, mark = square, mark options={scale=.4}] table {Figures/PlotData/Ex33LoadDispVer.dat};
+% % \addplot [dashed] coordinates { (0,3.069e-3) (1.2e-3,3.069e-3) };
+% % \addplot table {Figures/PlotData/LinearNR.dat};
+% \legend{
+% 	Horizontal, 
+% 	Vertical}
+% \end{axis}
+% \end{tikzpicture}
+% \caption{}
+% \label{fig:LoadDisp33}
+% \end{subfigure}
+% \caption{(\subref{fig:LoadDisp32}) Resulting deformed and undeformed 3D structure, here shown from the the linear analysis (\textbf{*1.6}). (\subref{fig:LoadDisp33}) Load-displacement curves for the vertical displacement at the load points from, respectively, the linear analysis (\textbf{*1.6}) and the geometrically non-linear analysis (GNA) (\textbf{*3.5}).}
+% \label{fig:Ex3}
+% \end{figure}
+
+
+
